@@ -11,8 +11,8 @@ len_indexes = []
 length = 1
 
 wordlist.sort(key=len)
-for i in range(len(wordlist)):
-    if len(wordlist[i]) > length:
+for i, word in enumerate(wordlist):
+    if len(word) > length:
         length += 1
         len_indexes.append(i)
 len_indexes.append(len(wordlist))
@@ -29,7 +29,7 @@ fps = 60
 
 score = 0
 
-header_font = pygame.font.Font('assets/fonts/square.ttf', 50)
+header_font = pygame.font.Font('assets/fonts/Square.ttf', 50)
 pause_font = pygame.font.Font('assets/fonts/1up.ttf', 38)
 banner_font = pygame.font.Font('assets/fonts/1up.ttf', 28)
 font = pygame.font.Font('assets/fonts/AldotheApache.ttf', 48)
@@ -94,10 +94,11 @@ class Button:
         if cir.collidepoint(pygame.mouse.get_pos()):
             butts = pygame.mouse.get_pressed()
             if butts[0]:
-                pygame.draw.circle(self.surf, (190, 35, 35), (self.x_pos, self.y_pos), 35)
+                rgb = (190, 35, 35)
                 self.clicked = True
             else:
-                pygame.draw.circle(self.surf, (190, 89, 135), (self.x_pos, self.y_pos), 35)
+                rgb = (190, 89, 135)
+            pygame.draw.circle(self.surf, rgb, (self.x_pos, self.y_pos), 35)
         pygame.draw.circle(self.surf, 'white', (self.x_pos, self.y_pos), 35, 3)
         self.surf.blit(pause_font.render(self.text, True, 'white'), (self.x_pos - 15, self.y_pos - 25))
 
@@ -136,15 +137,11 @@ def draw_pause():
     surface.blit(header_font.render('QUIT', True, 'white'), (450, 175))
     surface.blit(header_font.render('Active Letter Lengths:', True, 'white'), (110, 250))
 
-    for i in range(len(choices)):
+    for i, choice in enumerate(choices):
         btn = Button(160 + (i * 80), 350, str(i + 2), False, surface)
         btn.draw()
-        if btn.clicked:
-            if choice_commits[i]:
-                choice_commits[i] = False
-            else:
-                choice_commits[i] = True
-        if choices[i]:
+        choice_commits[i] = btn.clicked and not choice_commits[i]
+        if choice:
             pygame.draw.circle(surface, 'green', (160 + (i * 80), 350), 35, 5)
     screen.blit(surface, (0, 0))
     return resume_btn.clicked, choice_commits, quit_btn.clicked
@@ -152,13 +149,13 @@ def draw_pause():
 
 def generate_level():
     word_objs = []
-    include = []
     vertical_spacing = (HEIGHT - 150) // level
-    if True not in choices:
-        choices[0] = True
-    for i in range(len(choices)):
-        if choices[i]:
-            include.append((len_indexes[i], len_indexes[i + 1]))
+    choices[0] = not any(choices)
+    include = [
+        (len_indexes[i], len_indexes[i + 1])
+        for i, choice in enumerate(choices)
+        if choice
+    ]
     for i in range(level):
         speed = random.randint(1, 3)
         y_pos = random.randint(10 + (i * vertical_spacing), (i + 1) * vertical_spacing)
@@ -185,9 +182,8 @@ def check_high_score():
     global high_score
     if score > high_score:
         high_score = score
-        file = open('high_score.txt', 'w')
-        file.write(str(int(high_score)))
-        file.close()
+        with open('high_score.txt', 'w') as file:
+            file.write(str(int(high_score)))
 
 
 run = True
@@ -198,8 +194,7 @@ while run:
     pause_butt = draw_screen()
     if pz:
         resume_butt, changes, quit_butt = draw_pause()
-        if resume_butt:
-            pz = False
+        pz = not resume_butt
         if quit_butt:
             check_high_score()
             run = False
@@ -214,11 +209,11 @@ while run:
             if w.x_pos < -200:
                 word_objects.remove(w)
                 lives -= 1
-    if len(word_objects) <= 0 and not pz:
+    if not word_objects and not pz:
         level += 1
         new_level = True
 
-    if submit != '':
+    if submit:
         init = score
         score = check_answer(score)
         submit = ''
@@ -235,19 +230,15 @@ while run:
                 if event.unicode.lower() in letters:
                     active_string += event.unicode
                     click.play()
-                if event.key == pygame.K_BACKSPACE and len(active_string) > 0:
+                if event.key == pygame.K_BACKSPACE and active_string:
                     active_string = active_string[:-1]
-                if event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     submit = active_string
                     active_string = ''
             if event.key == pygame.K_ESCAPE:
-                if pz:
-                    pz = False
-                else:
-                    pz = True
-        if event.type == pygame.MOUSEBUTTONUP and pz:
-            if event.button == 1:
-                choices = changes
+                pz = not pz
+        if event.type == pygame.MOUSEBUTTONUP and pz and event.button == 1:
+            choices = changes
 
     if pause_butt:
         pz = True
@@ -256,12 +247,10 @@ while run:
         pz = True
         level = 1
         lives = 5
-        word_objects = []
+        word_objects.clear()
         new_level = True
         check_high_score()
         score = 0
 
     pygame.display.flip()
 pygame.quit()
-
-
